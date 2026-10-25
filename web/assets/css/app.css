@@ -24,6 +24,8 @@ h2{font-size:17px;letter-spacing:.06em;margin-bottom:8px}
 .brand{font-weight:700;letter-spacing:.05em}
 .navlink{color:var(--muted);padding:6px 10px;border-radius:6px}
 .navlink.on,.navlink:active{color:var(--text);background:#222}
+.c-topbar-logout{display:flex;align-items:center;margin:0}
+.c-topbar-logout button{min-width:82px;padding:0 10px}
 .chip{margin-left:auto;font-size:13px;color:var(--muted);border:1px solid var(--line);
   border-radius:12px;padding:4px 10px;white-space:nowrap}
 .chip.ok{color:var(--g1);border-color:var(--g1)}

@@ -7,7 +7,7 @@ Offline bean grading machine: Raspberry Pi 5 + Camera Module 3 + one solenoid ai
 The SAME code must run on a Windows/Linux laptop (laptop or USB webcam, simulated valve) and on the Pi. Only the capture layer (hardware.py camera classes) and the valve driver may differ.
 
 ## 2. Architecture
-- engine.py: Flask on 127.0.0.1:5000. The ONLY process that opens the camera and the valve. Modes: idle | calibrate | run. MJPEG at /stream.mjpg, JSON at /api/*.
+- engine.py: Flask on 127.0.0.1:5000 by default. The ONLY process that opens the camera and the valve. Modes: idle | calibrate | run. MJPEG at /stream.mjpg, JSON at /api/*. `BEAN_LAN=1` on a launcher binds both PHP and Flask to the LAN interface for same-network access; keep it unset for local-only use.
 - sorter.py: per-frame sorting (tracker, line crossing, valve trigger).
 - tracking.py: TrajectoryTracker - Kalman + Hungarian + re-id; every physical bean keeps ONE identity to the line, counted (and blown if grade 4) exactly once. Selected by config.FEATURES["trajectory_tracking"] (False = LegacyTracker in sorter.py).
 - vision.py: colour pipeline. PROTECTED (section 5).
@@ -15,7 +15,7 @@ The SAME code must run on a Windows/Linux laptop (laptop or USB webcam, simulate
 - db.py: SQLite schema, migrations, queries (data/beans.db, WAL). config.py: default tunables (override via settings key "tunables").
 - web/: PHP 8.2 app, document root. operate.php, admin/*, api/*, inc/*, assets/css/app.css, assets/js/*.
 - calibrate.py, operate.py, main.py: legacy OpenCV GUI and CLI tools. Keep working.
-- start_bean_sorter.sh, BeanSorter.desktop, install.sh, run_dev.*: launchers.
+- start_bean_sorter.sh, BeanSorter.desktop, install.sh, run_dev.*: launchers. `install.sh --autostart` enables the `bean-sorter` systemd service, which runs engine + PHP without X11, Chromium, Waveshare display, or internet; `install.sh --service-only --autostart` installs/enables it without apt downloads when dependencies already exist. Closing the kiosk does not stop the backends.
 - tests/, scripts/: regression safety net (section 4).
 Flow: camera -> frame normalization (BGR uint8, exactly config.FRAME_SIZE 1280x720) -> segmentation (conveyor colour, else background) -> bean contour -> bean pixels -> palette -> classify -> votes -> line crossing -> valve.
 Engine API additions: POST /api/run/show-tracks {on:bool} (also allowed in idle) toggles the trail/ID overlay; /api/status gains "tracking" (active, coasting, unique_crossed, suppressed, estimated, uncertain, lost_before_line, vote_resets, enabled) and "ground_truth" (sim camera only: active/spawned/crossed/defects physically crossing the line, plus per-bean `beans[]` = id/grade/crossed/cross_t/frames_visible and `fires[]` = valve pulses attributed to the physical bean nearest the line). Uncertain tracks (< TRACK_MIN_VOTES non-suspect votes) act per UNCERTAIN_POLICY: "blow" (default, fail-safe - costs some good beans) or "pass" (never fires). Vote resets: on a gap/re-id rebind, votes are cleared ONLY if the new palette is > TRACK_REID_DE from the track mean AND from every palette in the track's pal_hist; each reset counts in tracking.vote_resets and run_sessions.vote_resets (schema v6). BEAN_RECORD=<file> logs one JSON line per frame for tools/replay_tracking.py <file> (off by default); BEAN_DROP=<p> drops detections before the tracker; BEAN_LEGACY=1 forces LegacyTracker. Sim schedule mode: BEAN_SIM_SCHEDULE=1 + BEAN_SIM_SECS=<sim seconds> + BEAN_SIM_SPEED=<px/s> + BEAN_SIM_DT=<frame dt> + BEAN_SIM_SEED=<n> spawns beans on a fixed frame-indexed schedule (paired legacy/trajectory comparisons use the identical bean sequence) and the sorter reads camera.sim_t instead of wall clock.
@@ -113,6 +113,8 @@ Rules:
 ## 11. Platform parity (laptop vs Raspberry Pi)
 - Pi-only imports (picamera2, libcamera, gpiozero) stay lazy inside the class that needs them. Use pathlib, no hardcoded paths, no OS-specific commands outside the launcher scripts.
 - Windows: PHP built-in server is single-process, so PHP must never stream or long-poll.
+- The Pi runtime uses only local assets and local services. GitHub and internet are needed for cloning/updating/installing packages, not for sorting. On the Pi, engine/PHP autostart belongs to systemd so a missing display session cannot stop them; the kiosk is a client only.
+- `BEAN_LAN=1` is for a trusted private LAN only; it enables network access to the unauthenticated sorter controls. Never forward its ports to the public internet. The default remains loopback-only and works without internet.
 - Do not claim anything about Pi performance or real hardware unless you ran it there.
 
 ## 12. Protocol for adding a feature

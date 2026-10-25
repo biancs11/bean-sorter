@@ -53,8 +53,15 @@ Wrong camera opening? Change `WEBCAM_INDEX` in `config.py`.
 
 `install.sh` on the Pi installs everything once, then the **Bean Sorter** desktop icon runs
 `start_bean_sorter.sh`: Flask engine on `127.0.0.1:5000` (owns camera + valve) + PHP on
-`127.0.0.1:8080` + Chromium kiosk at 1024x600. Admin password defaults to `admin123`
-(forced change on first login). Closing the kiosk stops everything with the valve OFF.
+`127.0.0.1:8080` + Chromium kiosk at 1024x600. The engine and PHP keep running if the kiosk
+closes or the display is unavailable. This local-only setup works without internet.
+For access from another device on the same trusted Wi-Fi/LAN, start with `BEAN_LAN=1`;
+the PHP UI and engine bind to the LAN interface and can be opened at `http://<pi-ip>:8080`.
+Do not expose these unauthenticated controls to the public internet. Admin password defaults to `admin123`
+(forced change on first login). For startup without a graphical display, enable the
+`bean-sorter.service` installed by `install.sh --autostart` (see HOW-TO-RUN.md). If the
+Pi already has dependencies but internet is down, `sudo ./install.sh --service-only --autostart`
+configures the service without package downloads.
 The OpenCV windows (`main.py calibrate`/`run`) still work when the engine is not running.
 
 Engine arguments: `--camera pi|webcam|webcam:N|sim` (default `pi`), `--valve real|sim`
@@ -71,6 +78,9 @@ index / simulated), starts `engine.py --camera <pick> --valve sim` and
 everything (and closes the app window) on Ctrl+C or Enter. Pass a camera source to
 skip the menu: `run_dev.bat webcam:1`, `run_dev.bat sim`, `run_dev.bat pi`. Deps:
 `pip install -r requirements-dev.txt` (flask, opencv, numpy) + PHP CLI with sqlite3.
+Set `BEAN_LAN=1` before launching to let other devices on the same trusted private network
+open `http://<computer-ip>:8080`; leave it unset for local-only offline use. Never port-forward
+these unauthenticated controls to the public internet.
 
 Webcam auto white balance / exposure can drift – webcam colours are for **UI/flow
 testing only**; always recalibrate on the Pi.

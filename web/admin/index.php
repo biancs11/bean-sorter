@@ -59,6 +59,6 @@ if (!$last) {
          '<tr><td>Ended</td><td>' . e(local_dt($last['ended_at'])) . '</td></tr>',
          '<tr><td>Beans</td><td>' . $lt . ' (blown ' . (int)$last['blown'] . ')</td></tr></table>';
 }
-echo '</div><p><a class="btn" href="reports.php">Open reports</a> <a class="btn" href="logout.php">Log out</a></p>';
+echo '</div><p><a class="btn" href="reports.php">Open reports</a></p>';
 echo '</div></div>';
 page_foot();

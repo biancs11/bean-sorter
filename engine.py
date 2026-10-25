@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Web engine: the ONLY process that owns the camera and the valve.
 
-Flask JSON API + MJPEG stream for the PHP front end. Binds 127.0.0.1 only.
+Flask JSON API + MJPEG stream for the PHP front end. Binds to localhost unless
+BEAN_LAN=1 is explicitly enabled by the launcher.
 
   python3 engine.py [--simulate] [--port 5000]
 
@@ -10,11 +11,13 @@ exit, and the engine starts DISARMED until a run is started.
 """
 import argparse
 import logging
+import os
 import signal
 import sys
 import threading
 import time
 from collections import deque
+from urllib.parse import urlsplit
 
 logging.basicConfig(level=logging.DEBUG,
                     format="%(asctime)s %(levelname)s %(message)s")
@@ -331,6 +334,26 @@ def body():
     return request.get_json(silent=True) or {}
 
 
+def _origin_allowed(origin, request_host, lan_enabled=None):
+    """Allow the local UI, plus its same-host PHP origin in explicit LAN mode."""
+    if origin in ALLOWED_ORIGINS:
+        return True
+    if lan_enabled is None:
+        lan_enabled = os.environ.get("BEAN_LAN") == "1"
+    if not lan_enabled or not origin:
+        return False
+    try:
+        parsed = urlsplit(origin)
+        host = urlsplit("//" + request_host)
+        return (parsed.scheme == "http" and parsed.port == 8080
+                and parsed.hostname is not None
+                and parsed.hostname == host.hostname
+                and parsed.username is None and parsed.password is None
+                and not parsed.path and not parsed.query and not parsed.fragment)
+    except ValueError:
+        return False
+
+
 @app.before_request
 def preflight():
     # CORS preflight: answer 200 immediately; after_request adds the headers.
@@ -341,7 +364,7 @@ def preflight():
 @app.after_request
 def cors(resp):
     origin = request.headers.get("Origin")
-    if origin in ALLOWED_ORIGINS:
+    if _origin_allowed(origin, request.host):
         resp.headers["Access-Control-Allow-Origin"] = origin
         resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
         resp.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
@@ -643,6 +666,9 @@ def main():
                     help="pi | webcam | webcam:N (device index) | sim")
     ap.add_argument("--valve", choices=["real", "sim"], default="real")
     ap.add_argument("--port", type=int, default=5000)
+    ap.add_argument("--host", default=("0.0.0.0" if os.environ.get("BEAN_LAN") == "1"
+                                        else "127.0.0.1"),
+                    help="bind address (BEAN_LAN=1 enables LAN binding)")
     ap.add_argument("--list-cameras", action="store_true",
                     help="probe webcam indices 0-4 and exit")
     ap.add_argument("--fps-cap", type=float, default=0.0,
@@ -666,7 +692,7 @@ def main():
     signal.signal(signal.SIGTERM, _sig)
 
     try:
-        app.run(host="127.0.0.1", port=args.port, threaded=True,
+        app.run(host=args.host, port=args.port, threaded=True,
                 debug=False, use_reloader=False)
     except KeyboardInterrupt:
         pass

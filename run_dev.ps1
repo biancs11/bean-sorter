@@ -44,6 +44,7 @@ if (-not $Cam) { $Cam = 'webcam' }   # non-interactive fallback
 $eng = $null
 $phpProc = $null
 $appMode = $false   # we only auto-close the browser if we opened a dedicated app window
+$bind = if ($env:BEAN_LAN -eq '1') { '0.0.0.0' } else { '127.0.0.1' }
 
 function Close-AppWindow {
     if (-not $appMode) { return }
@@ -56,7 +57,7 @@ try {
     Write-Host "[dev] starting engine (camera $Cam + simulated valve) ..."
     $eng = Start-Process -PassThru -WindowStyle Hidden `
         -FilePath ".\.venv\Scripts\python.exe" `
-        -ArgumentList 'engine.py', '--camera', $Cam, '--valve', 'sim' `
+        -ArgumentList 'engine.py', '--camera', $Cam, '--valve', 'sim', '--host', $bind `
         -WorkingDirectory $PWD `
         -RedirectStandardOutput 'logs\dev-engine.log' `
         -RedirectStandardError  'logs\dev-engine.err'
@@ -64,7 +65,7 @@ try {
     Write-Host "[dev] starting PHP server ..."
     try {
         $phpProc = Start-Process -PassThru -WindowStyle Hidden `
-            -FilePath 'php' -ArgumentList '-S', '127.0.0.1:8080', '-t', 'web' `
+            -FilePath 'php' -ArgumentList '-S', "${bind}:8080", '-t', 'web' `
             -WorkingDirectory $PWD `
             -RedirectStandardOutput 'logs\dev-php.log' `
             -RedirectStandardError  'logs\dev-php.err'
@@ -90,6 +91,9 @@ try {
 
     $url = 'http://127.0.0.1:8080/operate.php'
     Write-Host "[dev] opening $url ..."
+    if ($env:BEAN_LAN -eq '1') {
+        Write-Host "[dev] LAN access enabled at http://<this-computer-ip>:8080 (trusted network only)"
+    }
     # a dedicated --app window is unambiguous to close on exit
     $browser = @(
         "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",

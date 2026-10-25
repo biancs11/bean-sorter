@@ -14,8 +14,13 @@ function page_head(string $title, string $active = '', bool $scroll = true): voi
          '<a class="navlink' . ($active === 'operate' ? ' on' : '') . '" href="/operate.php">Operate</a>',
          '<a class="navlink' . ($active === 'admin' ? ' on' : '') . '" href="/admin/index.php">Admin</a>',
          '<span class="chip" id="engine-chip">engine: ...</span>',
-         '<span class="clock" id="clock"></span>',
-         '</nav><main>';
+         '<span class="clock" id="clock"></span>';
+    if (is_logged_in()) {
+        echo '<form class="c-topbar-logout" method="post" action="/admin/logout.php">';
+        csrf_field();
+        echo '<button class="secondary" type="submit">Log out</button></form>';
+    }
+    echo '</nav><main>';
 }
 
 function page_foot(): void {

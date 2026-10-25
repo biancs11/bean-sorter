@@ -5,16 +5,18 @@ set -u
 cd "$(dirname "$0")"
 export BEAN_DB=data/dev.db
 mkdir -p logs var/sessions
+BIND=127.0.0.1
+if [ "${BEAN_LAN:-0}" = "1" ]; then BIND=0.0.0.0; fi
 
 PY=.venv/bin/python
 [ -x "$PY" ] || PY=python3
 
 CAM="${1:-webcam}"          # optional arg: camera source, e.g. ./run_dev.sh webcam:1
 echo "[dev] starting engine (camera $CAM + simulated valve) ..."
-"$PY" engine.py --camera "$CAM" --valve sim > logs/dev-engine.log 2>&1 &
+"$PY" engine.py --camera "$CAM" --valve sim --host "$BIND" > logs/dev-engine.log 2>&1 &
 ENG=$!
 echo "[dev] starting PHP server ..."
-php -S 127.0.0.1:8080 -t web > logs/dev-php.log 2>&1 &
+php -S "$BIND:8080" -t web > logs/dev-php.log 2>&1 &
 PHP=$!
 
 cleanup() { kill "$ENG" "$PHP" 2>/dev/null || true; }
@@ -33,6 +35,9 @@ if [ "$ok" = 0 ]; then
 fi
 
 echo "[dev] opening http://127.0.0.1:8080/ ..."
+if [ "$BIND" = "0.0.0.0" ]; then
+    echo "[dev] LAN access enabled at http://<this-computer-ip>:8080 (trusted network only)"
+fi
 (xdg-open http://127.0.0.1:8080/ 2>/dev/null \
     || open http://127.0.0.1:8080/ 2>/dev/null) &
 

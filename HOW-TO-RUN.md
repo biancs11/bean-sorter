@@ -5,7 +5,9 @@ Two processes always run together:
 - **Engine** (`engine.py`) — Flask on `http://127.0.0.1:5000`. The only process that opens the camera and the valve.
 - **Web UI** (`php -S 127.0.0.1:8080 -t web`) — touch interface at `http://127.0.0.1:8080/operate.php`.
 
-The launcher scripts start both, wait until healthy, and open the browser.
+The launcher scripts start both, wait until healthy, and open the browser. By default they
+bind only to this device, so sorting works without internet. For access from other devices
+on the same trusted Wi-Fi/LAN, use `BEAN_LAN=1` as described below.
 
 ---
 
@@ -27,7 +29,8 @@ different from the beans. Same lighting for calibration and operation — always
 
 ### Step 1: flash the OS
 
-1. On a PC, run **Raspberry Pi Imager** → Raspberry Pi OS **64-bit (desktop)**.
+1. On a PC, run **Raspberry Pi Imager** → Raspberry Pi OS **64-bit**. A desktop is
+   needed for the local Waveshare kiosk; the sorter service itself can run headless.
    In the gear/customisation step set hostname, user/password, Wi-Fi or plan
    Ethernet, and enable SSH if you want headless access.
 2. Boot the Pi with the camera already attached, log in.
@@ -54,11 +57,23 @@ Installs via apt: `python3-flask picamera2 opencv numpy gpiozero lgpio`,
 a **Bean Sorter** icon on the desktop + apps menu. Internet needed once here;
 everything runs offline afterwards.
 
-Optional — start automatically at every boot:
+Optional — run engine and PHP automatically at boot, without requiring a desktop or
+Waveshare display session:
 
 ```bash
 ./install.sh --autostart
 ```
+
+Check it with `sudo systemctl status bean-sorter`. The service does not wait for internet
+or a network-online target. With `BEAN_LAN=1` in `/etc/bean-sorter.env`, devices on the
+same trusted LAN can open the UI at `http://<pi-ip>:8080` even when the local display is
+unavailable. Keep that file unset for loopback-only access.
+
+If dependencies are already installed and internet is unavailable, install/enable only
+the service with `sudo ./install.sh --service-only --autostart`. To enable LAN access at
+boot, run `echo BEAN_LAN=1 | sudo tee /etc/bean-sorter.env` then
+`sudo systemctl restart bean-sorter`. The engine still starts disarmed after a reboot;
+start and arm it from the local screen or a trusted LAN browser.
 
 ### Step 4: check the camera
 
@@ -85,15 +100,20 @@ that does not click.
 ### Step 6: start the app
 
 Double-click the **Bean Sorter** desktop icon — it starts the engine (Pi camera +
-real valve), the PHP UI, and a fullscreen Chromium kiosk at 1024×600.
+real valve), the PHP UI, and attempts to open a fullscreen Chromium kiosk at 1024×600.
+The engine and PHP remain running if Chromium cannot open or the kiosk is closed.
 
 Or from a terminal (same thing, plus you can pass options):
 
 ```bash
 ./start_bean_sorter.sh                # production: --camera pi --valve real
 ./start_bean_sorter.sh --simulate     # simulation mode: fake beans, no GPIO
-BEAN_LAN=1 ./start_bean_sorter.sh     # also reachable at http://<pi-ip>:8080
+BEAN_LAN=1 ./start_bean_sorter.sh     # same trusted Wi-Fi/LAN: http://<pi-ip>:8080
 ```
+
+`BEAN_LAN=1` exposes the operator UI and engine controls to devices on your local network.
+Use it only on a trusted private network; do not forward ports 5000 or 8080 to the public
+internet. Leave it unset for local-only offline operation.
 
 First boot shows the login for admin pages: default password `admin123`
 (you will be forced to change it).
@@ -127,11 +147,12 @@ in `config.py` or Admin → Settings.
 
 ### Step 9: stopping
 
-- Closing the kiosk window stops the engine and PHP — the valve is always turned
-  **OFF** on exit, crash, SIGTERM/SIGINT.
-- From a terminal: Ctrl+C in `start_bean_sorter.sh`.
-- If a second start "does nothing": a previous run is still alive — the launcher
-  just re-opens the kiosk. Kill leftovers: `pkill -f engine.py; pkill -f "php -S"`.
+- Closing the kiosk only closes its window; the headless services continue. The engine
+  starts disarmed. Stop an autostart service with `sudo systemctl stop bean-sorter`;
+  start it again with `sudo systemctl start bean-sorter`.
+- The service turns the valve off when stopped or when the engine exits. To disable boot
+  startup: `sudo systemctl disable bean-sorter`.
+- If a second desktop start finds the services already running, it only opens the kiosk.
 
 ### Pi troubleshooting
 
@@ -214,6 +235,12 @@ It asks which camera to use:
 It starts the engine (`--valve sim`, dev database), the PHP server, opens
 `http://127.0.0.1:8080/operate.php`, and stops everything on Enter/Ctrl+C.
 Skip the menu: `run_dev.bat sim`, `run_dev.bat webcam:1`.
+
+For access from another device on the same trusted Wi-Fi/LAN, set
+`$env:BEAN_LAN='1'` in PowerShell before starting `run_dev.bat`. On Linux/macOS,
+use `BEAN_LAN=1 ./run_dev.sh`. Open `http://<computer-ip>:8080` from the other
+device. Unset `BEAN_LAN` to return to local-only mode. Do not port-forward these
+unauthenticated controls to the public internet.
 
 Manual equivalent (two terminals):
 
