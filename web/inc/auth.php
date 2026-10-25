@@ -40,6 +40,15 @@ function is_logged_in(): bool {
     return !empty($_SESSION['admin']);
 }
 
+function is_local_kiosk_session(): bool {
+    $remote = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+    $loopback = in_array($remote, ['127.0.0.1', '::1', '::ffff:127.0.0.1'], true);
+    if ($loopback && (string)($_GET['kiosk'] ?? '') === '1') {
+        $_SESSION['local_kiosk'] = true;
+    }
+    return $loopback && !empty($_SESSION['local_kiosk']);
+}
+
 // any admin page: not logged in -> login; still on default pw -> forced change
 function require_login(): void {
     if (!is_logged_in()) {

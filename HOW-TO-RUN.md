@@ -150,6 +150,9 @@ in `config.py` or Admin → Settings.
 - Closing the kiosk only closes its window; the headless services continue. The engine
   starts disarmed. Stop an autostart service with `sudo systemctl stop bean-sorter`;
   start it again with `sudo systemctl start bean-sorter`.
+- On the Raspberry Pi touchscreen, tap **Exit to Pi Home** in the header to close the
+  kiosk and return to the desktop. This ends the browser session; engine and PHP continue
+  running in the background.
 - The service turns the valve off when stopped or when the engine exits. To disable boot
   startup: `sudo systemctl disable bean-sorter`.
 - If a second desktop start finds the services already running, it only opens the kiosk.

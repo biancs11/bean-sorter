@@ -61,7 +61,8 @@ Do not expose these unauthenticated controls to the public internet. Admin passw
 (forced change on first login). For startup without a graphical display, enable the
 `bean-sorter.service` installed by `install.sh --autostart` (see HOW-TO-RUN.md). If the
 Pi already has dependencies but internet is down, `sudo ./install.sh --service-only --autostart`
-configures the service without package downloads.
+configures the service without package downloads. In the local touchscreen kiosk, **Exit
+to Pi Home** closes Chromium and returns to the desktop while engine and PHP keep running.
 The OpenCV windows (`main.py calibrate`/`run`) still work when the engine is not running.
 
 Engine arguments: `--camera pi|webcam|webcam:N|sim` (default `pi`), `--valve real|sim`

@@ -15,7 +15,11 @@ function page_head(string $title, string $active = '', bool $scroll = true): voi
          '<a class="navlink' . ($active === 'admin' ? ' on' : '') . '" href="/admin/index.php">Admin</a>',
          '<span class="chip" id="engine-chip">engine: ...</span>',
          '<span class="clock" id="clock"></span>';
-    if (is_logged_in()) {
+    if (is_local_kiosk_session()) {
+        echo '<form class="c-topbar-logout" method="post" action="/admin/exit-kiosk.php">';
+        csrf_field();
+        echo '<button class="secondary" type="submit">Exit to Pi Home</button></form>';
+    } elseif (is_logged_in()) {
         echo '<form class="c-topbar-logout" method="post" action="/admin/logout.php">';
         csrf_field();
         echo '<button class="secondary" type="submit">Log out</button></form>';

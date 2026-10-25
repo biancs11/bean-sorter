@@ -16,6 +16,7 @@ ENGINE_ARGS=(--camera pi --valve real)
 
 mkdir -p logs var/sessions var/chromium
 LOCK="$APP/var/bean_sorter.lock"
+EXIT_KIOSK="$APP/var/exit-kiosk.request"
 
 BIND="127.0.0.1"
 [ "${BEAN_LAN:-0}" = "1" ] && BIND="0.0.0.0"
@@ -25,11 +26,26 @@ CHROME="$(command -v chromium || command -v chromium-browser || true)"
 
 open_kiosk() {
   [ -z "$CHROME" ] && return 1
+  rm -f "$EXIT_KIOSK"
   "$CHROME" --kiosk --noerrdialogs --disable-infobars \
     --disable-session-crashed-bubble --incognito --password-store=basic \
-    --user-data-dir="$APP/var/chromium" http://127.0.0.1:8080/ &
+    --user-data-dir="$APP/var/chromium" http://127.0.0.1:8080/operate.php?kiosk=1 &
   CHROME_PID=$!
   return 0
+}
+
+close_kiosk() {
+  # Match only Chromium's main process using this app's dedicated profile.
+  # Its renderer/GPU children exit when the main browser process closes.
+  for cmdfile in /proc/[0-9]*/cmdline; do
+    [ -r "$cmdfile" ] || continue
+    pid="${cmdfile#/proc/}"
+    pid="${pid%/cmdline}"
+    cmdline="$(tr '\0' ' ' < "$cmdfile" 2>/dev/null || true)"
+    [[ "$cmdline" == *"--user-data-dir=$APP/var/chromium"* ]] || continue
+    [[ "$cmdline" == *" --type="* ]] && continue
+    kill "$pid" 2>/dev/null || true
+  done
 }
 
 if [ -f "$LOCK" ]; then
@@ -43,6 +59,7 @@ if [ -f "$LOCK" ]; then
   rm -f "$LOCK"
 fi
 echo $$ > "$LOCK"
+rm -f "$EXIT_KIOSK"
 
 ENGINE_PID=""; PHP_PID=""; CHROME_PID=""
 STOPPING=0
@@ -85,6 +102,11 @@ if [ "$NO_KIOSK" = "0" ]; then open_kiosk || true; fi
 # Supervise the backends, not Chromium. A failed display/browser must not stop
 # sorting or prevent access through another trusted LAN device.
 while kill -0 "$ENGINE_PID" 2>/dev/null && kill -0 "$PHP_PID" 2>/dev/null; do
+  if [ -f "$EXIT_KIOSK" ]; then
+    close_kiosk
+    rm -f "$EXIT_KIOSK"
+    CHROME_PID=""
+  fi
   sleep 2
 done
 echo "Bean Sorter backend exited - see logs/engine.log and logs/php.log" >&2
